@@ -10,7 +10,7 @@ const $ = window.jQuery;
 export async function downloadBackup() {
   const b = await UI.withLoading(() => Backup.createBackup(), 'Preparing backup…');
   const stamp = b.createdAt.replace(/[:.]/g, '-').slice(0, 19);
-  downloadFile(`saleapp-backup-${stamp}.json`, JSON.stringify(b), 'application/json');
+  downloadFile(`shoeshop-backup-${stamp}.json`, JSON.stringify(b), 'application/json');
   pref.set('lastBackupAt', b.createdAt);
   return b;
 }

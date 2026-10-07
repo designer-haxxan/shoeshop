@@ -1,22 +1,24 @@
 {
-  "name": "SaleAPP POS",
-  "short_name": "SaleAPP",
-  "description": "Offline-first point of sale with sales, purchases, stock, accounts and reports.",
+  "name": "Shoe Shop POS",
+  "short_name": "Shoe Shop",
+  "description": "Shoe shop software: sell shoes by size and colour, buy from factories, udhaar ledger, stock, cash book and reports. Works offline.",
   "id": "./index.html",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f0c29",
-  "theme_color": "#4f46e5",
-  "categories": ["business", "finance", "productivity"],
+  "background_color": "#fbf7f3",
+  "theme_color": "#c2410c",
+  "categories": ["business", "finance", "shopping"],
   "icons": [
+    { "src": "icons/shoe.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "New sale", "url": "./index.html#/pos", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Shoes", "url": "./index.html#/products", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Dashboard", "url": "./index.html#/dashboard", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

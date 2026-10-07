@@ -1,11 +1,14 @@
 // Application bootstrap: service worker, database, authentication gate, navigation and routing.
-import { CONFIG } from './config.js';
+import { CONFIG, storageKey } from './config.js';
 import { applyTheme, getSettings } from './core/settings.js';
 import * as UI from './core/ui.js';
 import { esc } from './core/utils.js';
+import { SHOE_TYPES, PAYMENT_ACCOUNTS } from './core/shoe.js';
+import * as idb from './db/idb.js';
 import { openDB } from './db/idb.js';
 import * as Auth from './services/auth.js';
 import * as Catalog from './services/catalog.js';
+import * as Posting from './services/posting.js';
 
 const $ = window.jQuery;
 
@@ -17,10 +20,10 @@ const ROUTES = {
   purchase: [() => import('./modules/pos.js'), 'New Purchase', 'purchase.manage', null, null],
   purchases: [() => import('./modules/documents.js'), 'Purchases', 'purchase.manage', 'bag', 'Main'],
   returns: [() => import('./modules/documents.js'), 'Returns', null, 'arrow-return-left', 'Main'],
-  products: [() => import('./modules/products.js'), 'Products', null, 'box-seam', 'Inventory'],
+  products: [() => import('./modules/products.js'), 'Shoes', null, 'bag-heart', 'Inventory'],
   stock: [() => import('./modules/stock.js'), 'Stock', null, 'boxes', 'Inventory'],
-  customers: [() => import('./modules/parties.js'), 'Customers', null, 'people', 'Parties'],
-  suppliers: [() => import('./modules/parties.js'), 'Suppliers', 'purchase.manage', 'truck', 'Parties'],
+  customers: [() => import('./modules/parties.js'), 'Customers (Udhaar)', null, 'people', 'Parties'],
+  suppliers: [() => import('./modules/parties.js'), 'Suppliers / Factories', 'purchase.manage', 'truck', 'Parties'],
   vouchers: [() => import('./modules/vouchers.js'), 'Cash Book & Payments', 'voucher.create', 'cash-coin', 'Accounts'],
   accounts: [() => import('./modules/accounts.js'), 'Accounts', 'account.manage', 'bank', 'Accounts'],
   reports: [() => import('./reports/reports.js'), 'Reports', 'reports.view', 'bar-chart-line', 'Accounts'],
@@ -140,8 +143,26 @@ async function route() {
 }
 
 // ---------- Auth gate ----------
+// First run on this device: add the usual shoe types and payment accounts (JazzCash, Easypaisa, bank).
+// Runs once; the owner can rename, add or delete them afterwards.
+async function seedShoeDefaults() {
+  const flag = storageKey('seeded.shoe');
+  try { if (localStorage.getItem(flag)) return; } catch { return; }
+  try {
+    if (Auth.can('product.edit') && !Catalog.allCategories().length) {
+      for (const name of SHOE_TYPES) await Posting.saveCategory({ name });
+    }
+    if (Auth.can('account.manage')) {
+      const have = new Set((await idb.getAll('accounts')).map((a) => a.name.toLowerCase()));
+      for (const a of PAYMENT_ACCOUNTS) if (!have.has(a.name.toLowerCase())) await Posting.saveAccount({ ...a, openingBalance: 0 });
+    }
+    localStorage.setItem(flag, '1');
+  } catch (e) { console.warn('Default setup skipped:', e); }
+}
+
 async function startApp() {
   await Catalog.load();
+  await seedShoeDefaults();
   buildMenu();
   showView('app');
   renderConn(navigator.onLine ? 'online' : 'offline');

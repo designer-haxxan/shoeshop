@@ -1,6 +1,18 @@
-# SaleAPP POS
+# Shoe Shop POS
 
-Offline-first, mobile-first Point of Sale as a static PWA (no build step).
+Shoe shop software: sell shoes by size and colour, buy from factories, keep udhaar (credit) ledgers, track stock and print receipts. Offline-first, mobile-first, a static PWA with no build step.
+
+## Shoe shop features
+
+- **Shoe models**: create a model (brand, style, type) with its colours and sizes in one grid. Each colour × size becomes its own pair with its own barcode and stock.
+- **Size-wise selling**: in the POS, tap a model to pick the colour and size. Each size shows the pairs left. Search works too, e.g. `servis black 42`.
+- **Factory purchases**: buy by model and size from suppliers and factories, using the same grid.
+- **Udhaar**: customer credit balances and ledgers.
+- **Payments**: cash, JazzCash, Easypaisa and bank accounts. The first run adds these accounts once per device.
+- **Shoe types**: Men, Women, Kids, Sports, Formal, Casual, Sandals & Chappal, Loafers and Boots are added once per device on first run. Rename or add more under *Shoes → Types*.
+- **Motion**: an animated sneaker on the splash and login screens, and a shoe stamp after each completed sale. All motion is turned off when the device asks for reduced motion.
+
+
 HTML5 · ES modules · jQuery · Bootstrap 5 · Bootstrap Icons · IndexedDB · Service Worker · eposwala login API.
 
 ## Features
@@ -98,7 +110,7 @@ Then open http://localhost:8765.
 
 ### 3. Deploy
 
-**GitHub Pages:** this repository is served from branch `main`, folder `/ (root)` (*Settings → Pages*), at https://designer-haxxan.github.io/DistERP/. All paths are relative, so the app works from that sub-path. `.nojekyll` makes Pages serve the files unchanged. Login from `github.io` only works once the eposwala API allows the origin `https://designer-haxxan.github.io` (see CORS above).
+**Static hosting:** upload the folder to any HTTPS web host. All paths are relative, so it also works from a sub-folder. Login only works once the login API allows the origin you host the app on (see CORS above).
 
 
 Host the folder on **https://eposwala.com** (e.g. an IIS site or virtual directory next to `/api`), or on any other HTTPS host once the API allows that origin. **HTTPS is required** for the service worker, camera and Web Bluetooth.

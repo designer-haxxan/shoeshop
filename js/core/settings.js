@@ -5,7 +5,7 @@ const KEY = storageKey('settings');
 const LEGACY_KEY = 'pos.settings'; // shared by older builds on the same origin; copied once as a starting point
 
 export const DEFAULT_SETTINGS = {
-  business: { name: 'My Store', address: '', phone: '', taxNo: '', footer: 'Thank you for your purchase!' },
+  business: { name: 'My Shoe Shop', address: '', phone: '', taxNo: '', footer: 'Shukriya! Phir tashreef laayein. Thank you, visit again.' },
   currency: 'Rs',
   taxEnabled: false,
   taxRate: 0,
@@ -59,5 +59,5 @@ export function applyTheme() {
   const t = getSettings().theme;
   const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1117' : '#f4f5fb');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#120e0c' : '#fbf7f3');
 }

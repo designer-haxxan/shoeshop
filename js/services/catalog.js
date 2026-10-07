@@ -12,7 +12,7 @@ function indexProduct(p) {
   if (old?.barcode) byBarcode.delete(lc(old.barcode));
   products.set(p.id, p);
   if (p.barcode) byBarcode.set(lc(p.barcode), p);
-  p._s = lc([p.name, p.sku, p.barcode, categories.get(p.categoryId)?.name].filter(Boolean).join(' '));
+  p._s = lc([p.name, p.sku, p.barcode, p.brand, p.model, p.color, p.size, categories.get(p.categoryId)?.name].filter(Boolean).join(' '));
 }
 
 export async function load() {

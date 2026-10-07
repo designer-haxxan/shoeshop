@@ -10,6 +10,7 @@ import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
 import * as Scanner from '../scanner/scanner.js';
 import { partyPicker } from './parties.js';
+import { sortSizes } from '../core/shoe.js';
 
 const $ = window.jQuery;
 let st; let $root; let detachWedge = null; let payAccounts = [];
@@ -37,7 +38,7 @@ function layout() {
   return `<div class="pos">
     <div class="pos-left">
       <div class="d-flex gap-2 mb-2">
-        <input type="search" class="form-control browse-q" placeholder="Filter products…" autocomplete="off">
+        <input type="search" class="form-control browse-q" placeholder="Filter shoes…" autocomplete="off">
         <button class="btn btn-light d-lg-none btn-close-browse" aria-label="Close"><i class="bi bi-x-lg"></i></button>
       </div>
       <div class="chips mb-2 cat-chips"></div>
@@ -47,7 +48,7 @@ function layout() {
       <div class="pos-search">
         <div class="input-group input-group-lg">
           <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
-          <input type="search" class="form-control pos-q" placeholder="Search or scan product" autocomplete="off" enterkeyhint="search" aria-label="Search product">
+          <input type="search" class="form-control pos-q" placeholder="Search brand, model, size or scan barcode" autocomplete="off" enterkeyhint="search" aria-label="Search product">
           <button class="btn btn-outline-secondary btn-scan" title="Scan with camera" aria-label="Scan barcode"><i class="bi bi-upc-scan"></i></button>
           <button class="btn btn-outline-secondary btn-browse d-lg-none" title="Browse products" aria-label="Browse"><i class="bi bi-grid-3x3-gap"></i></button>
         </div>
@@ -62,7 +63,7 @@ function layout() {
             ${sale ? `<li><button class="dropdown-item btn-hold"><i class="bi bi-pause-circle me-2"></i>Hold this sale</button></li>
             <li><button class="dropdown-item btn-price-mode"><i class="bi bi-tags me-2"></i>Use <span class="pm-label"></span> prices</button></li>` : ''}
             <li><button class="dropdown-item btn-scan-cont"><i class="bi bi-upc-scan me-2"></i>Continuous scan</button></li>
-            <li><button class="dropdown-item btn-quick-add"><i class="bi bi-plus-square me-2"></i>Add new product</button></li>
+            <li><button class="dropdown-item btn-quick-add"><i class="bi bi-plus-square me-2"></i>Add new shoe</button></li>
             <li><hr class="dropdown-divider"></li>
             <li><button class="dropdown-item text-danger btn-clear"><i class="bi bi-trash me-2"></i>${st.editId ? 'Cancel editing' : 'Clear cart'}</button></li>
           </ul>
@@ -85,7 +86,7 @@ function renderLines() {
   const s = getSettings();
   const $l = $root.find('.pos-lines');
   if (!st.lines.length) {
-    $l.html(UI.emptyState(isSale() ? 'Cart is empty. Search, scan or browse to add products.' : 'No products yet. Search or scan to add purchased items.', 'cart'));
+    $l.html(UI.emptyState(isSale() ? 'Cart is empty. Search a shoe, scan a barcode or tap a model.' : 'No shoes yet. Search or scan the shoes you are buying.', 'cart'));
   } else {
     $l.html(st.lines.map((l, i) => {
       const p = Catalog.product(l.productId);
@@ -109,7 +110,7 @@ function renderTotals() {
   $root.find('.total').text(`${cur()} ${fmtNum(t.total)}`);
   $root.find('.footer-sub').html(`<span>${st.lines.length} item(s) · qty ${fmtQty(t.qtyTotal)}</span><span>${t.discount ? `Disc ${fmtNum(t.discount)} · ` : ''}${t.tax ? `Tax ${fmtNum(t.tax)}` : ''}</span>`);
   $root.find('.btn-pay').prop('disabled', !st.lines.length);
-  $root.find('.party-name').text(st.partyName || (isSale() ? 'Walk-in Customer' : 'Select supplier'));
+  $root.find('.party-name').text(st.partyName || (isSale() ? 'Walk-in customer' : 'Select supplier / factory'));
   $root.find('.pm-label').text(st.priceMode === 'retail' ? 'wholesale' : 'retail');
   persist();
 }
@@ -122,18 +123,92 @@ async function renderHoldCount() {
 
 // ---------- browse grid ----------
 let browseCat = null;
+// Browse grid: one tile per shoe model (shows all sizes/colours in a picker), one tile per single item.
 function renderGrid() {
   const q = $root.find('.browse-q').val() || '';
-  const list = Catalog.searchProducts(q, { limit: 120, categoryId: browseCat });
+  const list = Catalog.searchProducts(q, { limit: 600, categoryId: browseCat });
   const cats = Catalog.allCategories();
   $root.find('.cat-chips').html(`<span class="chip ${!browseCat ? 'active' : ''}" data-cat="">All</span>` + cats.map((c) => `<span class="chip ${browseCat === c.id ? 'active' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</span>`).join(''));
-  $root.find('.product-grid').html(list.length ? list.map((p) => `
-    <button class="product-tile" data-id="${esc(p.id)}">
+  const tiles = groupByModel(list).slice(0, 120);
+  $root.find('.product-grid').html(tiles.length ? tiles.map(modelTile).join('') : UI.emptyState('No shoes found', 'bag'));
+}
+
+// Keeps the search order; variants of the same model collapse into one tile.
+function groupByModel(list) {
+  const out = []; const byKey = new Map();
+  for (const p of list) {
+    if (!p.modelKey) { out.push({ single: p }); continue; }
+    let g = byKey.get(p.modelKey);
+    if (!g) { g = { key: p.modelKey, rep: p, variants: [] }; byKey.set(p.modelKey, g); out.push(g); }
+    g.variants.push(p);
+  }
+  return out;
+}
+
+function modelTile(g) {
+  if (g.single) {
+    const p = g.single;
+    return `<button class="product-tile" data-id="${esc(p.id)}">
       ${p.image ? `<img src="${p.image}" alt="" loading="lazy">` : `<div class="ph tint-${UI.tintFor(p.name)}">${esc(UI.initials(p.name))}</div>`}
       <div class="n">${esc(p.name)}</div>
       <div class="p">${fmtNum(priceOf(p))}</div>
       ${p.trackStock !== false ? `<div class="s">Stock: ${fmtQty(p.stock)}</div>` : ''}
-    </button>`).join('') : UI.emptyState('No products', 'box'));
+    </button>`;
+  }
+  const r = g.rep; const active = g.variants.filter((v) => v.active);
+  const stock = active.reduce((s, v) => s + (v.trackStock !== false ? Math.max(0, v.stock || 0) : 0), 0);
+  const sizes = new Set(active.map((v) => v.size).filter(Boolean)).size;
+  const title = [r.brand, r.model].filter(Boolean).join(' ') || r.name;
+  return `<button class="product-tile model-tile" data-model="${esc(g.key)}">
+      ${r.image ? `<img src="${r.image}" alt="" loading="lazy">` : `<div class="ph shoe-ph tint-${UI.tintFor(title)}"><i class="bi bi-bag-heart"></i><span>${esc(UI.initials(title))}</span></div>`}
+      <div class="n">${esc(title)}</div>
+      <div class="p">${fmtNum(priceOf(r))}</div>
+      <div class="s">${sizes} size${sizes === 1 ? '' : 's'} · ${fmtQty(stock)} pr</div>
+    </button>`;
+}
+
+// Picker: colours as rows, sizes as buttons with the pairs left in each. Tapping a size adds that pair.
+function openModelPicker(key) {
+  const variants = Catalog.allProducts().filter((p) => p.modelKey === key && p.active);
+  if (!variants.length) return UI.toast('No sizes available for this model', 'warning');
+  const colors = [...new Set(variants.map((v) => v.color || '—'))];
+  const sizes = sortSizes([...new Set(variants.map((v) => v.size || '—'))]);
+  const at = (c, s) => variants.find((v) => (v.color || '—') === c && (v.size || '—') === s);
+  const head = variants[0];
+  const title = [head.brand, head.model].filter(Boolean).join(' ') || head.name;
+  const m = UI.modal({ title, size: 'lg',
+    body: `<div class="model-picker">
+      <div class="mp-hint small text-body-secondary mb-2">Tap a size to add one pair. The number under the size is the pairs in stock.</div>
+      ${colors.map((c) => `<div class="mp-row">
+        <div class="mp-color"><span class="mp-dot" style="background:${colorDot(c)}"></span>${esc(c)}</div>
+        <div class="mp-sizes">${sizes.map((s) => {
+          const v = at(c, s);
+          if (!v) return '<span class="size-btn is-none" aria-hidden="true">·</span>';
+          const out = v.trackStock !== false && (v.stock || 0) <= 0;
+          const low = !out && v.trackStock !== false && (v.stock || 0) <= (v.minStock || 0);
+          return `<button class="size-btn ${out ? 'is-out' : ''} ${low ? 'is-low' : ''}" data-id="${esc(v.id)}" aria-label="${esc(c)} size ${esc(s)}, ${fmtQty(v.stock)} in stock">
+            <b>${esc(s)}</b><small>${v.trackStock === false ? '∞' : fmtQty(v.stock)}</small></button>`;
+        }).join('')}</div>
+      </div>`).join('')}
+    </div>` });
+  m.$el.on('click', '.size-btn[data-id]', function () {
+    addProduct(Catalog.product(this.dataset.id));
+    m.close();
+  });
+}
+
+const COLOR_DOTS = { black: '#111827', brown: '#7c4a21', tan: '#c8a27a', white: '#f8fafc', navy: '#1e3a8a', grey: '#9ca3af', gray: '#9ca3af', maroon: '#7f1d1d', beige: '#e7d9bd', red: '#dc2626', green: '#15803d' };
+const colorDot = (c) => COLOR_DOTS[String(c).toLowerCase()] || '#d6d3d1';
+
+// Little shoe-stamp celebration after a completed sale or purchase.
+function celebrate() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const el = document.createElement('div');
+  el.className = 'sale-stamp';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = `<svg viewBox="0 0 200 120"><path class="s-sole" d="M14 92H186Q194 92 194 100V104Q194 112 186 112H14Q6 112 6 104V100Q6 92 14 92Z"/><path class="s-upper" d="M18 90V52Q18 34 36 32L60 30Q68 56 98 62L142 70Q178 76 188 88Z"/><path class="s-laces" d="M96 60l8-6M106 65l8-6M116 69l8-6"/></svg><span>Sold!</span>`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1700);
 }
 
 // ---------- cart operations ----------
@@ -205,7 +280,7 @@ async function editLine(i) {
 
 async function choosePartyFn() {
   const kind = isSale() ? 'customers' : 'suppliers';
-  const p = await partyPicker(kind, { noneLabel: isSale() ? 'Walk-in Customer' : 'No supplier (cash purchase)' });
+  const p = await partyPicker(kind, { noneLabel: isSale() ? 'Walk-in customer' : 'No supplier (cash purchase)' });
   if (p === undefined) return;
   st.partyId = p?.id || null; st.partyName = p?.name || '';
   renderTotals();
@@ -253,7 +328,7 @@ async function checkout() {
   const calc = () => Posting.previewDoc(st.lines, num($m.find('[name=discount]').val()), taxRate());
   const update = () => {
     const c = calc();
-    $m.find('.co-party span').text(st.partyName || (sale ? 'Walk-in Customer' : 'No supplier (cash purchase)'));
+    $m.find('.co-party span').text(st.partyName || (sale ? 'Walk-in customer' : 'No supplier (cash purchase)'));
     if (!c) { $m.find('.co-total').text('—'); $m.find('.co-result').attr('class', 'alert alert-danger py-2 mb-2 co-result').text('Discount cannot exceed the subtotal.'); $m.find('.co-complete').prop('disabled', true); return; }
     $m.find('.co-total').text(`${cur()} ${fmtNum(c.total)}`);
     $m.find('.co-breakdown').text(`Subtotal ${fmtNum(c.subtotal)}${c.discount ? ` − discount ${fmtNum(c.discount)}` : ''}${c.tax ? ` + tax ${fmtNum(c.tax)} (${c.taxRate}%)` : ''}`);
@@ -288,7 +363,8 @@ async function checkout() {
   // Our modal helper removes the element on hide; keep it alive while choosing a party.
   $m.off('hidden.bs.modal');
   let finished = false;
-  const closeAll = () => { finished = true; m.bs.hide(); $m.one('hidden.bs.modal', () => { m.bs.dispose(); $m.remove(); }); };
+  // Bootstrap may already have disposed the modal when its own data-bs-dismiss handler ran; ignore that second dispose.
+  const closeAll = () => { finished = true; m.bs.hide(); $m.one('hidden.bs.modal', () => { try { m.bs.dispose(); } catch { /* already disposed */ } $m.remove(); }); };
   $m.find('[data-bs-dismiss=modal]').on('click', (e) => { e.preventDefault(); closeAll(); });
   $m.find('.btn-close').on('click', (e) => { e.preventDefault(); closeAll(); });
   $m.on('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeAll(); } });
@@ -334,6 +410,7 @@ async function checkout() {
 
 function afterSave(doc) {
   const sale = isSale();
+  celebrate();
   const m = UI.modal({
     title: sale ? 'Sale completed' : 'Purchase saved', fullscreenMobile: false, scrollable: false,
     body: `<div class="text-center"><i class="bi bi-check-circle-fill text-success display-5"></i>
@@ -453,7 +530,8 @@ export default {
     $root.on('click', '.btn-close-browse', () => $root.find('.pos').removeClass('show-browse'));
     $root.on('input', '.browse-q', debounce(renderGrid, 150));
     $root.on('click', '.cat-chips [data-cat]', function () { browseCat = this.dataset.cat || null; renderGrid(); });
-    $root.on('click', '.product-tile', function () {
+    $root.on('click', '.model-tile', function () { openModelPicker(this.dataset.model); });
+    $root.on('click', '.product-tile:not(.model-tile)', function () {
       addProduct(Catalog.product(this.dataset.id));
       if (!window.matchMedia('(min-width: 992px)').matches) UI.toast('Added', 'success', 800);
     });
